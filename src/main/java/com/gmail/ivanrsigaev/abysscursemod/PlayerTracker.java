@@ -2,14 +2,13 @@ package com.gmail.ivanrsigaev.abysscursemod;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.OptionalInt;
 import java.util.UUID;
 
 import com.gmail.ivanrsigaev.abysscursemod.Config.LayerData;
 import com.gmail.ivanrsigaev.abysscursemod.Config.LevelData;
 
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.level.Level;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.entity.player.Player;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -21,31 +20,28 @@ public class PlayerTracker {
     private static final Map<UUID, PlayerData> PLAYERS = new HashMap<>();
 
     private static class PlayerData {
-        public ResourceKey<Level> level;
-        public int limitY;
-        public int prevY;
+        public LevelData levelData;
+        public LayerData layerData;
+        public int yLimit;
+        public int y;
 
-        public PlayerData(ResourceKey<Level> level, int limitY, int prevY) {
-            this.level = level;
-            this.limitY = limitY;
-            this.prevY = prevY;
+        public PlayerData(LevelData levelData, LayerData layerData, int yLimit, int y) {
+            this.levelData = levelData;
+            this.layerData = layerData;
+            this.yLimit = yLimit;
+            this.y = y;
         }
     }
 
     @SubscribeEvent
     public static void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
         var player = event.getEntity();
-        var level = player.level.dimension();
-        var y = (int)Math.floor(player.getY());
-        var levelData = ConfigStorage.getConfig().levels.get(level);
-        PlayerData data;
-        if (levelData != null) {
-            data = new PlayerData(level, hardLayerLimit(levelData, y).orElse(0), y);
-        } else {
-            data = new PlayerData(level, 0, 0);
+        var playerData = getNewPlayerData(player);
+        if (playerData.layerData != null) {
+            displayTitle(player, playerData.layerData.name);
         }
-        var uuid = player.getUUID();
-        PLAYERS.put(uuid, data);
+
+        PLAYERS.put(player.getUUID(), getNewPlayerData(player));
     }
 
     @SubscribeEvent
@@ -56,53 +52,81 @@ public class PlayerTracker {
 
     @SubscribeEvent
     public static void onPlayerTick(TickEvent.PlayerTickEvent event) {
-        // TODO: implement this...
+        var config = ConfigSerializer.getConfig();
+        if (event.side.isClient()) {
+            return;
+        }
+
+        var player = event.player;
+        var playerData = PLAYERS.get(player.getUUID());
+        var yNew = (int)Math.floor(player.getY());
+        var dy = yNew - playerData.y;
+        if (dy == 0) {
+            return;
+        }
+
+
+        if (playerData.layerData != null) {
+            var canApplyCurse = 
+                    !config.disableCurseLayers
+                    && !(config.disableCurseInCreativeMode && player.noPhysics);
+            var hasTriggeredCurse = 
+                    playerData.levelData.isAscensionCurse && yNew > playerData.yLimit
+                    || !playerData.levelData.isAscensionCurse && yNew < playerData.yLimit;
+            if (canApplyCurse && hasTriggeredCurse) {
+                for (var effectData : playerData.layerData.curseEffects) {
+                    var mobEffectInstance = new MobEffectInstance(
+                            effectData.effect,
+                            effectData.duration,
+                            effectData.level);
+                    player.addEffect(mobEffectInstance);
+                }
+            }
+        }
+
+        var newPlayerData = getNewPlayerData(player);
+
+        if (newPlayerData.layerData != null) {
+            if (newPlayerData.layerData != playerData.layerData) {
+                displayTitle(player, newPlayerData.layerData.name);
+            }
+        }
+
+        PLAYERS.put(player.getUUID(), newPlayerData);
     }
 
     @SubscribeEvent
     public static void onDimensionChange(PlayerEvent.PlayerChangedDimensionEvent event) {
-        // TODO: implement this...
+        var player = event.getEntity();
+        var playerData = getNewPlayerData(player);
+
+        // Could add a feature to punish certain dimension transitions here...
+
+        if (playerData.layerData != null) {
+            displayTitle(player, playerData.layerData.name);
+        }
+
+        PLAYERS.put(player.getUUID(), getNewPlayerData(player));
     }
 
-    private static LayerData findLayer(LevelData levelData, int y) {
-        LayerData layerData = null;
-        int bottomY = levelData.bottomY;
-        if (y < bottomY) {
-            return null;
-        }
-        for (LayerData value : levelData.layers) {
-            if (y < bottomY + value.height) {
-                layerData = value;
-                break;
-            }
-            bottomY += value.height;
-        }
-        return layerData;
+    private static void displayTitle(Player player, String title) {
+        var command = "title " + player.getScoreboardName() + " title \"" + title + "\"";
+        AbyssCurseMod.server.getCommands().performPrefixedCommand(AbyssCurseMod.commandsSource, command);
     }
 
-    private static OptionalInt hardLayerLimit(LevelData levelData, int y) {
-        LayerData layerData = null;
-        int bottomY = levelData.bottomY;
-        if (y < bottomY) {
-            return OptionalInt.empty();
-        }
-        for (LayerData value : levelData.layers) {
-            if (y < bottomY + value.height) {
-                layerData = value;
-                break;
+    private static PlayerData getNewPlayerData(Player player) {
+        var config = ConfigSerializer.getConfig();
+        var levelKey = player.level.dimension().location();
+        var levelData = config.levels.get(levelKey);
+        var y = (int)Math.floor(player.getY());
+        var data = new PlayerData(null, null, 0, y);
+        if (levelData != null) {
+            var layerData = levelData.findLayer(y);
+            if (layerData != null) {
+                var yLimit = levelData.nextHardLimit(layerData, y);
+                data = new PlayerData(levelData, layerData, yLimit, y);
             }
-            bottomY += value.height;
         }
-        if (layerData == null) {
-            return OptionalInt.empty();
-        }
-
-        if (levelData.isAscensionCurse) {
-            var delta = (bottomY + layerData.height - 1 - y) % layerData.curseActivationHeight;
-            return OptionalInt.of(y + delta);
-        } else {
-            var delta = (y - bottomY) % layerData.curseActivationHeight;
-            return OptionalInt.of(y - delta);
-        }
+        return data;
     }
 }
