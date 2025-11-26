@@ -48,18 +48,19 @@ public class PlayerTracker {
     @SubscribeEvent
     public static void onPlayerTick(TickEvent.PlayerTickEvent event) {
         var config = ConfigSerializer.getConfig();
-        if (event.side.isClient()) {
+        if (!event.side.isServer()) {
+            return;
+        }
+        if (!event.phase.equals(TickEvent.Phase.END)) {
             return;
         }
 
         var player = event.player;
         var playerData = PLAYERS.get(player.getUUID());
         var yNew = (int)Math.floor(player.getY());
-        var dy = yNew - playerData.y;
-        if (dy == 0) {
+        if (yNew == playerData.y) {
             return;
         }
-
 
         if (playerData.layerData != null) {
             var canApplyCurse = 
