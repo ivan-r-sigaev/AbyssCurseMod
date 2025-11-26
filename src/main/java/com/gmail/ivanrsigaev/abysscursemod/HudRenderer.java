@@ -11,6 +11,7 @@ public class HudRenderer {
     public static void onRenderGui(RenderGuiEvent.Post event) {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player == null) return;
+        if (minecraft.options.renderDebug) return;
         
         PoseStack poseStack = event.getPoseStack();
         Config config = ConfigSerializer.getConfig();
