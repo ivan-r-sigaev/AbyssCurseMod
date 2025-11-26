@@ -16,14 +16,19 @@ public class HudRenderer {
         Config config = ConfigSerializer.getConfig();
         var levelKey = minecraft.player.level.dimension().location();
         var levelData = config.levels.get(levelKey);
+        if (levelData == null) return;
         var y = (int)Math.floor(minecraft.player.getY());
         var layerData = levelData.findLayer(y);
         if (layerData == null) return;
 
         var yLimit = levelData.nextHardLimit(layerData, y);
         var dy = Math.abs(y - yLimit);
-        String text = Integer.toString(dy + 1) + "/" + Integer.toString(layerData.curseActivationHeight);
-        
-        minecraft.font.drawShadow(poseStack, text, 10, 10, 0xFFFFFF);
+        String limitText = Integer.toString(dy + 1) + "/" + Integer.toString(layerData.curseActivationHeight);
+        String text = "[" + limitText + "] " + layerData.name;
+        var w = minecraft.getWindow().getGuiScaledWidth();
+        var h = minecraft.getWindow().getGuiScaledHeight();
+
+        // Could add text position to mod config.
+        minecraft.font.drawShadow(poseStack, text, w / 20, h / 20, 0xFFFFFF);
     }
 }

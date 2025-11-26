@@ -100,19 +100,19 @@ public class ConfigSerializer {
 
     private static Config sampleConfig() {
         var config = new Config();
-        var overworld = new LevelData(0, true, new ArrayList<>());
+        var overworld = new LevelData(-64, true, new ArrayList<>());
         {
             var lower_layer_effect = new ArrayList<EffectData>();
-            lower_layer_effect.add(new EffectData(parseMobEffectName("instant_damage"), 1, 1));
-            lower_layer_effect.add(new EffectData(parseMobEffectName("blindness"), 10, 1));
-            var lower_layer = new LayerData("Lower Abyss Layer", 64, 10, lower_layer_effect);
+            lower_layer_effect.add(new EffectData(parseMobEffectName("instant_damage"), 0, 0));
+            lower_layer_effect.add(new EffectData(parseMobEffectName("blindness"), 100, 0));
+            var lower_layer = new LayerData("example lower abyss layer", 64, 8, lower_layer_effect);
             overworld.layers.add(lower_layer);
         }
         {
-            var top_layer_effect = new ArrayList<EffectData>();
-            top_layer_effect.add(new EffectData(parseMobEffectName("nausea"), 5, 1));
-            var top_layer = new LayerData("Top Abyss Layer", 64, 20, top_layer_effect);
-            overworld.layers.add(top_layer);
+            var upper_layer_effect = new ArrayList<EffectData>();
+            upper_layer_effect.add(new EffectData(parseMobEffectName("nausea"), 200, 1));
+            var upper_layer = new LayerData("example upper abyss layer", 64, 16, upper_layer_effect);
+            overworld.layers.add(upper_layer);
         }
         config.levels.put(parseLevelName("overworld"), overworld);
         return config;

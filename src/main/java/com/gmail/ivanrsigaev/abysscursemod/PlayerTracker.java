@@ -36,18 +36,13 @@ public class PlayerTracker {
     @SubscribeEvent
     public static void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
         var player = event.getEntity();
-        var playerData = getNewPlayerData(player);
-        if (playerData.layerData != null) {
-            displayTitle(player, playerData.layerData.name);
-        }
-
         PLAYERS.put(player.getUUID(), getNewPlayerData(player));
     }
 
     @SubscribeEvent
     public static void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {
-        var uuid = event.getEntity().getUUID();
-        PLAYERS.remove(uuid);
+        var player = event.getEntity();
+        PLAYERS.remove(player.getUUID());
     }
 
     @SubscribeEvent
@@ -86,12 +81,6 @@ public class PlayerTracker {
 
         var newPlayerData = getNewPlayerData(player);
 
-        if (newPlayerData.layerData != null) {
-            if (newPlayerData.layerData != playerData.layerData) {
-                displayTitle(player, newPlayerData.layerData.name);
-            }
-        }
-
         PLAYERS.put(player.getUUID(), newPlayerData);
     }
 
@@ -102,16 +91,7 @@ public class PlayerTracker {
 
         // Could add a feature to punish certain dimension transitions here...
 
-        if (playerData.layerData != null) {
-            displayTitle(player, playerData.layerData.name);
-        }
-
-        PLAYERS.put(player.getUUID(), getNewPlayerData(player));
-    }
-
-    private static void displayTitle(Player player, String title) {
-        var command = "title " + player.getScoreboardName() + " title \"" + title + "\"";
-        AbyssCurseMod.server.getCommands().performPrefixedCommand(AbyssCurseMod.commandsSource, command);
+        PLAYERS.put(player.getUUID(), playerData);
     }
 
     private static PlayerData getNewPlayerData(Player player) {
